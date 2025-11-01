@@ -1,0 +1,4 @@
+Flask
+SpeechRecognition
+deep_translator
+gTTS

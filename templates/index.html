@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>영어강의 번역기</title>
+  <style>
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background-color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      margin: 0;
+      padding: 40px 0;
+      height: 100%;
+    }
+
+    h1 {
+      color: #2563eb;
+      margin-bottom: 25px;
+    }
+
+    #recordBtn {
+      background-color: #2563eb;
+      color: white;
+      border: 2px solid #2563eb;
+      border-radius: 8px;
+      padding: 12px 28px;
+      font-size: 1.05rem;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-bottom: 35px;
+    }
+
+    #recordBtn:hover {
+      background-color: #1e40af;
+    }
+
+    .container {
+      width: 90%;
+      display: flex;
+      gap: 7%;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .box {
+      width: 37%;
+      height: 350px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title {
+      color: #2563eb;
+      font-weight: bold;
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .text {
+      flex: 1;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: #111;
+      white-space: pre-wrap;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+      }
+      .box {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1> 영어강의 번역기</h1>
+  <button id="recordBtn">▶️ 번역 시작</button>
+
+  <div class="container">
+    <div class="box">
+      <div class="title">원문 (English)</div>
+      <div id="originalText" class="text"></div>
+    </div>
+
+    <div class="box">
+      <div class="title">번역 (한국어)</div>
+      <div id="translatedText" class="text"></div>
+    </div>
+  </div>
+<script>
+  const btn = document.getElementById('recordBtn');
+  const originalBox = document.getElementById('originalText');
+  const translatedBox = document.getElementById('translatedText');
+
+  let mediaRecorder;
+  let audioChunks = [];
+
+  btn.addEventListener("click", async () => {
+    // 🎙 녹음 시작
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
+      btn.textContent = "⏸️ 번역 중지";
+      btn.style.backgroundColor = "#f8fafc";
+      btn.style.color = "#111";
+      btn.style.borderColor = "#2563eb";
+
+      try {
+        // ✅ 마이크 접근 요청
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("🎤 마이크 스트림 획득 성공:", stream);
+
+        // ✅ 지원되는 MIME 타입 확인 (fallback 포함)
+        let mimeType = "audio/webm";
+        if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/webm;codecs=opus";
+        if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/ogg";
+        console.log("🎙 사용 MIME 타입:", mimeType);
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunks.push(e.data);
+            console.log("🎧 chunk 수집됨:", e.data.size, "bytes");
+          }
+        };
+
+        // 🔹 중지 시 서버로 전송
+        mediaRecorder.onstop = async () => {
+          console.log("🟥 녹음 중지됨. 총 chunk 개수:", audioChunks.length);
+
+          // ✅ flush 대기 (버퍼 유실 방지)
+          await new Promise((resolve) => setTimeout(resolve, 300));
+
+          // ✅ Blob 생성
+          const audioBlob = new Blob(audioChunks, { type: mimeType });
+          console.log("🟦 Blob 크기:", audioBlob.size, "bytes");
+
+          if (audioBlob.size < 5000) {
+            originalBox.textContent = "⚠️ 녹음된 데이터가 너무 짧거나 비어 있습니다.";
+            translatedBox.textContent = "";
+            btn.textContent = "▶️ 번역 시작";
+            btn.style.backgroundColor = "#2563eb";
+            btn.style.color = "white";
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append("audio", audioBlob, "speech.webm");
+
+          originalBox.textContent = "🕓 인식 중...";
+          translatedBox.textContent = "";
+
+          try {
+            const res = await fetch("/translate", { method: "POST", body: formData });
+            const data = await res.json();
+            console.log("🟩 서버 응답:", data);
+
+            if (data.error) {
+              originalBox.textContent = "❌ 오류: " + data.error;
+            } else {
+              originalBox.textContent = data.original;
+              translatedBox.textContent = data.translated;
+            }
+          } catch (err) {
+            originalBox.textContent = "❌ 서버 통신 오류: " + err.message;
+            console.error("🚨 fetch 오류:", err);
+          }
+
+          // 버튼 상태 복구
+          btn.textContent = "▶️ 번역 시작";
+          btn.style.backgroundColor = "#2563eb";
+          btn.style.color = "white";
+        };
+
+        // 🎬 녹음 시작
+        mediaRecorder.start();
+        console.log("⏺️ 녹음 시작됨");
+
+      } catch (err) {
+        console.error("🚫 마이크 접근 실패:", err);
+        originalBox.textContent = "❌ 마이크 접근이 거부되었습니다.";
+      }
+    }
+
+    // 🛑 녹음 중지
+    else {
+      mediaRecorder.stop();
+      console.log("⏹️ stop() 호출됨");
+    }
+  });
+</script>
+
+</body>
+</html>
