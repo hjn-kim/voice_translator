@@ -3,3 +3,4 @@ SpeechRecognition
 deep_translator
 gTTS
 gunicorn
+ffmpeg-python

@@ -4,11 +4,6 @@ import speech_recognition as sr
 from deep_translator import GoogleTranslator
 from pydub import AudioSegment
 
-# 🔹 ffmpeg 경로 설정
-os.environ["PATH"] += os.pathsep + r"C:\Users\mphk0\ffmpeg\bin"
-AudioSegment.ffmpeg = r"C:\Users\mphk0\ffmpeg\bin\ffmpeg.exe"
-AudioSegment.ffprobe = r"C:\Users\mphk0\ffmpeg\bin\ffprobe.exe"
-
 app = Flask(__name__)
 
 @app.route('/')
@@ -79,6 +74,8 @@ def translate_audio():
         return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    print("🚀 Flask 서버 시작: http://127.0.0.1:5000")
+    # ✅ Render 환경에서는 PORT를 반드시 환경변수로 받아야 함
+    port = int(os.environ.get("PORT", 10000))
+    print(f"🚀 Flask 서버 시작 (포트 {port})")
     sys.stdout.flush()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=port)
