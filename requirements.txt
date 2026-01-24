@@ -1,0 +1,7 @@
+Flask
+SpeechRecognition
+deep_translator
+gTTS
+pydub
+gunicorn
+ffmpeg-python
