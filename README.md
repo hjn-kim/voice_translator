@@ -3,7 +3,7 @@
 # 🎙️ 영어강의 번역기 (English → 한국어)
 
 **브라우저에서 음성을 녹음하고, 서버에서 음성 인식(STT) 후 한국어로 번역해주는 웹 앱**
-
+**URL: https://vtrans-eoc8.onrender.com**
 <br/>
 
 <!-- Badges -->
